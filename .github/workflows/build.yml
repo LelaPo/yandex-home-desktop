@@ -1,67 +1,79 @@
-name: CI & Build
+name: CI / Build
 
 on:
   push:
     branches: [main]
     tags:
       - 'v*'
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.env.example'
   pull_request:
     branches: [main]
-  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой на GitHub
+  workflow_dispatch: # Кнопка для ручной сборки .exe когда захочешь
 
 jobs:
-  build-windows:
-    name: Build Windows App
+  # 1. БЫСТРАЯ ПРОВЕРКА (запускается всегда при коммитах в код)
+  check:
+    name: Fast Code Check
     runs-on: windows-latest
-
-    permissions:
-      contents: write
-
     steps:
-      # 1. Скачиваем исходный код
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 2. Настраиваем Node.js с кэшированием npm
+      - uses: actions/checkout@v4
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      # 3. Настраиваем Rust
-      - name: Setup Rust stable
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 4. Умный кэш Rust (ускоряет повторные сборки в 3-4 раза)
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      # 5. Установка зависимостей frontend
       - name: Install dependencies
         run: npm ci
 
-      # 6. Проверка TypeScript на ошибки типов
-      - name: Typecheck Frontend
+      - name: Typecheck TypeScript
         run: npx tsc
 
-      # 7. Сборка приложения через Tauri CLI
-      - name: Build Tauri App
-        run: npm run tauri build
+      - name: Fast Rust Check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      # 8. Сохраняем готовый .exe установщик в артефакты коммита
-      - name: Upload Artifacts
+  # 2. ТЯЖЁЛАЯ СБОРКА .EXE (только вручную или при релизном теге v*)
+  build-installer:
+    name: Build Windows .exe
+    needs: check
+    # Сборка включится ТОЛЬКО если ты создал тег v* или нажал кнопку вручную
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - run: npm ci
+      - run: npm run tauri build
+
+      - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: yandex-home-desktop-windows-x64
+          name: yandex-home-desktop-windows-installer
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
-          if-no-files-found: warn
 
-      # 9. Если коммит был с тегом (например, v0.1.0), создаём официальный GitHub Release
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -69,8 +81,6 @@ jobs:
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
-          draft: false
-          prerelease: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
