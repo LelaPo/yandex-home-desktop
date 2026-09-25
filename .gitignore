@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# Зависимости Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Сборка фронтенда
+dist/
+dist-ssr/
+*.local
+
+# Бинарники и кэш Rust/Tauri (ОБЯЗАТЕЛЬНО, весит гигабайты!)
+src-tauri/target/
+
+# Секреты и токены (САМОЕ ВАЖНОЕ: не удалить эту строчку!)
+.env
+.env.*
+!.env.example
+
+# Конфиги редакторов
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
